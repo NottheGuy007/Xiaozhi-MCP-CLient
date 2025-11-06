@@ -1,0 +1,2 @@
+# Check for due reminders every minute
+* * * * * cd /path/to/xiaozhi-reminder-server && /usr/bin/python3 reminder_notifier.py >> /var/log/reminder_notifier.log 2>&1
