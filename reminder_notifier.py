@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("reminder_notifier")
 
-DB_PATH = Path("reminders.db")
+DB_PATH = Path(os.getenv("DB_PATH", "/app/data/reminders.db"))
 
 
 async def send_notification_to_xiaozhi(reminder):
