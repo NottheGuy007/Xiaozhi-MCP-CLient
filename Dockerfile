@@ -2,13 +2,25 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy application files
+COPY reminder_server.py .
+COPY reminder_notifier.py .
+COPY mcp_pipe.py .
+COPY start.sh .
 
+# Make start script executable
 RUN chmod +x start.sh
 
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
+
+# Set database path
+ENV DB_PATH=/app/data/reminders.db
 ENV PYTHONUNBUFFERED=1
 
+# Default command (can be overridden)
 CMD ["./start.sh"]
