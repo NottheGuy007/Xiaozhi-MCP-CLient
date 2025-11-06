@@ -215,10 +215,18 @@ class MCPPipe:
                 logger.error(f"Error in main loop: {e}")
             finally:
                 if self.ws:
-                    await self.ws.close()
+                    try:
+                        await self.ws.close()
+                    except:
+                        pass
                 if self.process:
-                    self.process.terminate()
-                    await self.process.wait()
+                    try:
+                        self.process.terminate()
+                        await self.process.wait()
+                    except ProcessLookupError:
+                        pass
+                    except Exception as e:
+                        logger.warning(f"Error terminating process: {e}")
                 
                 if self.running:
                     logger.info(f"Reconnecting in {self.reconnect_delay}s...")
@@ -230,15 +238,25 @@ class MCPPipe:
         self.running = False
         
         if self.ws:
-            await self.ws.close()
+            try:
+                await self.ws.close()
+            except:
+                pass
         
         if self.process:
-            self.process.terminate()
             try:
+                self.process.terminate()
                 await asyncio.wait_for(self.process.wait(), timeout=5)
+            except ProcessLookupError:
+                pass
             except asyncio.TimeoutError:
-                self.process.kill()
-                await self.process.wait()
+                try:
+                    self.process.kill()
+                    await self.process.wait()
+                except ProcessLookupError:
+                    pass
+            except Exception as e:
+                logger.warning(f"Error stopping process: {e}")
 
 
 async def main():
