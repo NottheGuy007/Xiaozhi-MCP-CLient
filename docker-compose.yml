@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  reminder-server:
+    build: .
+    container_name: xiaozhi-reminder-server
+    environment:
+      - XIAOZHI_TOKEN=${XIAOZHI_TOKEN}
+      - MCP_SCRIPT=reminder_server.py
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    command: python mcp_pipe.py
+
+  reminder-notifier:
+    build: .
+    container_name: xiaozhi-reminder-notifier
+    environment:
+      - XIAOZHI_TOKEN=${XIAOZHI_TOKEN}
+      - NOTIFIER_MODE=continuous
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    command: python reminder_notifier.py
+    depends_on:
+      - reminder-server
