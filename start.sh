@@ -10,11 +10,21 @@ mkdir -p /app/data
 # Set database path
 export DB_PATH=/app/data/reminders.db
 
-echo "Database path: $DB_PATH"
+# Choose which server to run (with or without Smithery)
+if [ "$ENABLE_SMITHERY" = "true" ]; then
+    export MCP_SCRIPT=reminder_with_smithery.py
+    echo "Using Smithery-enabled server"
+else
+    export MCP_SCRIPT=reminder_server.py
+    echo "Using standard reminder server"
+fi
 
-# Initialize database by running reminder_server.py once
+echo "Database path: $DB_PATH"
+echo "MCP Script: $MCP_SCRIPT"
+
+# Initialize database by running the appropriate server once
 echo "Initializing database..."
-timeout 5 python reminder_server.py || true
+timeout 5 python $MCP_SCRIPT || true
 
 # Check if database was created
 if [ -f "$DB_PATH" ]; then
