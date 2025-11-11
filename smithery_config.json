@@ -1,0 +1,18 @@
+{
+  "servers": [
+    {
+      "name": "exa",
+      "url": "https://mcp.smithery.ai/servers/exa",
+      "config": {
+        "exaApiKey": "${EXA_API_KEY}"
+      }
+    },
+    {
+      "name": "github",
+      "url": "https://mcp.smithery.ai/servers/github",
+      "config": {
+        "githubToken": "${GITHUB_TOKEN}"
+      }
+    }
+  ]
+}
