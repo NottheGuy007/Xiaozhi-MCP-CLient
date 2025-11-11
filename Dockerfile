@@ -11,6 +11,8 @@ COPY reminder_server.py .
 COPY reminder_notifier.py .
 COPY mcp_pipe.py .
 COPY web_server.py .
+COPY smithery_connector.py .
+COPY reminder_with_smithery.py .
 COPY start.sh .
 
 # Make start script executable
