@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "reminder": {
+      "command": "python",
+      "args": ["reminder_server.py"],
+      "env": {
+        "DB_PATH": "/tmp/reminders.db"
+      }
+    }
+  }
+}
