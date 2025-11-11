@@ -17,6 +17,8 @@ mcp = FastMCP("Xiaozhi Reminder Server with Smithery")
 
 logger.info("Importing Smithery connector...")
 from smithery_connector import (
+    smithery_search,
+    smithery_get_info,
     smithery_connect,
     smithery_list_servers, 
     smithery_list_tools,
@@ -38,9 +40,21 @@ from reminder_server import (
 
 
 @mcp.tool()
-def connect_smithery_server(server_name: str, server_url: str, config_json: str = "{}"):
-    """Connect to a Smithery.ai hosted MCP server. Example: connect_smithery_server('exa', 'https://api.smithery.ai/servers/exa', '{}')"""
-    return smithery_connect(server_name, server_url, config_json)
+def search_smithery_registry(query: str, page: str = "1", page_size: str = "10"):
+    """Search for MCP servers in Smithery registry. Example: search_smithery_registry('github')"""
+    return smithery_search(query, page, page_size)
+
+
+@mcp.tool()
+def get_smithery_server_info(qualified_name: str):
+    """Get detailed info about a Smithery server. Example: get_smithery_server_info('smithery-ai/github')"""
+    return smithery_get_info(qualified_name)
+
+
+@mcp.tool()
+def connect_smithery_server(qualified_name: str, config_json: str = "{}"):
+    """Connect to a Smithery.ai hosted MCP server. Example: connect_smithery_server('smithery-ai/github', '{"githubPersonalAccessToken":"ghp_..."}')"""
+    return smithery_connect(qualified_name, config_json)
 
 
 @mcp.tool()
@@ -50,15 +64,15 @@ def list_smithery_servers():
 
 
 @mcp.tool()
-def list_smithery_tools(server_name: str):
-    """List available tools from a connected Smithery server. Example: list_smithery_tools('exa')"""
-    return smithery_list_tools(server_name)
+def list_smithery_tools(qualified_name: str):
+    """List available tools from a connected Smithery server. Example: list_smithery_tools('smithery-ai/github')"""
+    return smithery_list_tools(qualified_name)
 
 
 @mcp.tool()
-def call_smithery_tool(server_name: str, tool_name: str, arguments_json: str = "{}"):
-    """Call a tool on a connected Smithery server. Example: call_smithery_tool('exa', 'search', '{"query": "AI news"}')"""
-    return smithery_call_tool(server_name, tool_name, arguments_json)
+def call_smithery_tool(qualified_name: str, tool_name: str, arguments_json: str = "{}"):
+    """Call a tool on a connected Smithery server. Example: call_smithery_tool('smithery-ai/github', 'search_repositories', '{"query": "MCP"}')"""
+    return smithery_call_tool(qualified_name, tool_name, arguments_json)
 
 
 @mcp.tool()
