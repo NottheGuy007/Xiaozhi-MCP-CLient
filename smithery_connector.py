@@ -15,17 +15,97 @@ logger = logging.getLogger("smithery_connector")
 
 
 class SmitheryClient:
-    """Client to connect and interact with Smithery.ai hosted MCP servers"""
+    """
+    Client to connect to Smithery.ai hosted MCP servers
+    Requires SMITHERY_API_KEY environment variable
+    """
     
     def __init__(self):
         self.api_key = os.getenv("SMITHERY_API_KEY", "")
+        if not self.api_key:
+            logger.warning("SMITHERY_API_KEY not set - Smithery features will be limited")
+        
         self.servers = {}
         self.http_client = httpx.AsyncClient(timeout=30.0)
+        self.registry_url = "https://registry.smithery.ai"
+        self.server_base_url = "https://server.smithery.ai"
         
-    async def connect_server(self, server_name, server_url, config=None):
-        """Connect to a Smithery MCP server"""
+    async def search_servers(self, query, page=1, page_size=10):
+        """Search for MCP servers in Smithery registry"""
         try:
-            logger.info(f"Connecting to Smithery server: {server_name} at {server_url}")
+            if not self.api_key:
+                return {"error": "SMITHERY_API_KEY not set"}
+            
+            url = f"{self.registry_url}/servers"
+            params = {
+                "q": query,
+                "page": page,
+                "pageSize": page_size
+            }
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Accept": "application/json"
+            }
+            
+            logger.info(f"Searching Smithery registry for: {query}")
+            
+            response = await self.http_client.get(url, params=params, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "servers": data.get("servers", []),
+                    "pagination": data.get("pagination", {})
+                }
+            else:
+                return {"error": f"Search failed: {response.status_code}", "details": response.text}
+                
+        except Exception as e:
+            logger.error(f"Error searching servers: {e}")
+            return {"error": str(e)}
+    
+    async def get_server_info(self, qualified_name):
+        """Get detailed info about a specific server (format: owner/repo)"""
+        try:
+            if not self.api_key:
+                return {"error": "SMITHERY_API_KEY not set"}
+            
+            url = f"{self.registry_url}/servers/{qualified_name}"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Accept": "application/json"
+            }
+            
+            logger.info(f"Getting server info: {qualified_name}")
+            
+            response = await self.http_client.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                return {"success": True, "server": response.json()}
+            else:
+                return {"error": f"Failed to get server info: {response.status_code}"}
+                
+        except Exception as e:
+            logger.error(f"Error getting server info: {e}")
+            return {"error": str(e)}
+    
+    async def connect_hosted_server(self, qualified_name, server_config):
+        """
+        Connect to a Smithery HOSTED server
+        
+        Args:
+            qualified_name: Server name in format owner/repo (e.g., 'smithery-ai/github')
+            server_config: Dict with server-specific config (e.g., {"githubPersonalAccessToken": "..."})
+        """
+        try:
+            if not self.api_key:
+                return {"error": "SMITHERY_API_KEY not set. Get one from https://smithery.ai"}
+            
+            server_url = f"{self.server_base_url}/@{qualified_name}"
+            
+            logger.info(f"Connecting to hosted Smithery server: {qualified_name}")
+            logger.info(f"Server URL: {server_url}")
             
             init_request = {
                 "jsonrpc": "2.0",
@@ -37,18 +117,19 @@ class SmitheryClient:
                         "sampling": {}
                     },
                     "clientInfo": {
-                        "name": "xiaozhi-reminder-proxy",
+                        "name": "xiaozhi-reminder-server",
                         "version": "1.0.0"
                     }
                 }
             }
             
             headers = {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
             }
             
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            if server_config:
+                headers["X-Server-Config"] = json.dumps(server_config)
             
             response = await self.http_client.post(
                 server_url,
@@ -58,28 +139,35 @@ class SmitheryClient:
             
             if response.status_code == 200:
                 result = response.json()
-                self.servers[server_name] = {
+                self.servers[qualified_name] = {
                     "url": server_url,
-                    "config": config or {},
+                    "config": server_config,
+                    "capabilities": result.get("result", {}),
+                    "type": "hosted"
+                }
+                logger.info(f"Successfully connected to {qualified_name}")
+                return {
+                    "success": True,
+                    "message": f"Connected to {qualified_name}",
+                    "server_url": server_url,
                     "capabilities": result.get("result", {})
                 }
-                logger.info(f"Successfully connected to {server_name}")
-                return True
             else:
-                logger.error(f"Failed to connect to {server_name}: {response.status_code}")
-                return False
+                error_msg = f"Failed to connect: {response.status_code} - {response.text}"
+                logger.error(error_msg)
+                return {"error": error_msg}
                 
         except Exception as e:
-            logger.error(f"Error connecting to {server_name}: {e}")
-            return False
+            logger.error(f"Error connecting to {qualified_name}: {e}")
+            return {"error": str(e)}
     
-    async def list_tools(self, server_name):
-        """List available tools from a Smithery server"""
-        if server_name not in self.servers:
-            return {"error": f"Server {server_name} not connected"}
+    async def list_tools(self, qualified_name):
+        """List available tools from a connected server"""
+        if qualified_name not in self.servers:
+            return {"error": f"Server {qualified_name} not connected. Connect first."}
         
         try:
-            server = self.servers[server_name]
+            server = self.servers[qualified_name]
             
             request = {
                 "jsonrpc": "2.0",
@@ -87,9 +175,13 @@ class SmitheryClient:
                 "method": "tools/list"
             }
             
-            headers = {"Content-Type": "application/json"}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
+            }
+            
+            if server.get("config"):
+                headers["X-Server-Config"] = json.dumps(server["config"])
             
             response = await self.http_client.post(
                 server["url"],
@@ -100,21 +192,26 @@ class SmitheryClient:
             if response.status_code == 200:
                 result = response.json()
                 tools = result.get("result", {}).get("tools", [])
-                return {"success": True, "tools": tools}
+                return {
+                    "success": True,
+                    "server": qualified_name,
+                    "count": len(tools),
+                    "tools": tools
+                }
             else:
                 return {"error": f"Failed to list tools: {response.status_code}"}
                 
         except Exception as e:
-            logger.error(f"Error listing tools from {server_name}: {e}")
+            logger.error(f"Error listing tools from {qualified_name}: {e}")
             return {"error": str(e)}
     
-    async def call_tool(self, server_name, tool_name, arguments):
-        """Call a tool on a Smithery server"""
-        if server_name not in self.servers:
-            return {"error": f"Server {server_name} not connected"}
+    async def call_tool(self, qualified_name, tool_name, arguments):
+        """Call a tool on a connected server"""
+        if qualified_name not in self.servers:
+            return {"error": f"Server {qualified_name} not connected. Connect first."}
         
         try:
-            server = self.servers[server_name]
+            server = self.servers[qualified_name]
             
             request = {
                 "jsonrpc": "2.0",
@@ -126,11 +223,15 @@ class SmitheryClient:
                 }
             }
             
-            headers = {"Content-Type": "application/json"}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
+            }
             
-            logger.info(f"Calling tool {tool_name} on {server_name}")
+            if server.get("config"):
+                headers["X-Server-Config"] = json.dumps(server["config"])
+            
+            logger.info(f"Calling {tool_name} on {qualified_name}")
             
             response = await self.http_client.post(
                 server["url"],
@@ -140,12 +241,20 @@ class SmitheryClient:
             
             if response.status_code == 200:
                 result = response.json()
-                return result.get("result", {})
+                return {
+                    "success": True,
+                    "server": qualified_name,
+                    "tool": tool_name,
+                    "result": result.get("result", {})
+                }
             else:
-                return {"error": f"Tool call failed: {response.status_code}", "details": response.text}
+                return {
+                    "error": f"Tool call failed: {response.status_code}",
+                    "details": response.text
+                }
                 
         except Exception as e:
-            logger.error(f"Error calling tool {tool_name} on {server_name}: {e}")
+            logger.error(f"Error calling {tool_name} on {qualified_name}: {e}")
             return {"error": str(e)}
     
     async def close(self):
@@ -156,17 +265,71 @@ class SmitheryClient:
 smithery_client = SmitheryClient()
 
 
-def smithery_connect(server_name, server_url, config_json="{}"):
+def smithery_search(query, page="1", page_size="10"):
     """
-    Connect to a Smithery.ai hosted MCP server
+    Search for MCP servers in Smithery registry
     
     Args:
-        server_name: Friendly name for the server (e.g., 'exa', 'github')
-        server_url: Full URL to the Smithery hosted server
-        config_json: JSON string with server configuration
+        query: Search term (e.g., 'github', 'web search', 'database')
+        page: Page number (default: 1)
+        page_size: Results per page (default: 10)
+    
+    Returns:
+        JSON string with search results
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(
+            smithery_client.search_servers(query, int(page), int(page_size))
+        )
+        
+        return json.dumps(result, indent=2)
+        
+    except Exception as e:
+        logger.error(f"Error in smithery_search: {e}")
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
+
+
+def smithery_get_info(qualified_name):
+    """
+    Get detailed information about a Smithery server
+    
+    Args:
+        qualified_name: Server name in format owner/repo (e.g., 'smithery-ai/github')
+    
+    Returns:
+        JSON string with server details
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(
+            smithery_client.get_server_info(qualified_name)
+        )
+        
+        return json.dumps(result, indent=2)
+        
+    except Exception as e:
+        logger.error(f"Error in smithery_get_info: {e}")
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
+
+
+def smithery_connect(qualified_name, config_json="{}"):
+    """
+    Connect to a Smithery hosted MCP server
+    
+    Args:
+        qualified_name: Server name in format owner/repo (e.g., 'smithery-ai/github')
+        config_json: JSON string with server configuration (e.g., '{"githubPersonalAccessToken": "ghp_..."}')
     
     Returns:
         JSON string with connection status
+    
+    Example:
+        smithery_connect('smithery-ai/github', '{"githubPersonalAccessToken": "ghp_abc123"}')
     """
     try:
         config = json.loads(config_json) if config_json else {}
@@ -174,29 +337,15 @@ def smithery_connect(server_name, server_url, config_json="{}"):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        success = loop.run_until_complete(
-            smithery_client.connect_server(server_name, server_url, config)
+        result = loop.run_until_complete(
+            smithery_client.connect_hosted_server(qualified_name, config)
         )
         
-        if success:
-            return json.dumps({
-                "success": True,
-                "message": f"Connected to Smithery server: {server_name}",
-                "server_name": server_name,
-                "url": server_url
-            }, indent=2)
-        else:
-            return json.dumps({
-                "success": False,
-                "error": f"Failed to connect to {server_name}"
-            }, indent=2)
+        return json.dumps(result, indent=2)
             
     except Exception as e:
         logger.error(f"Error in smithery_connect: {e}")
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 
 def smithery_list_servers():
@@ -212,6 +361,7 @@ def smithery_list_servers():
             servers.append({
                 "name": name,
                 "url": info["url"],
+                "type": info.get("type", "unknown"),
                 "connected": True
             })
         
@@ -223,18 +373,15 @@ def smithery_list_servers():
         
     except Exception as e:
         logger.error(f"Error listing servers: {e}")
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 
-def smithery_list_tools(server_name):
+def smithery_list_tools(qualified_name):
     """
     List available tools from a connected Smithery server
     
     Args:
-        server_name: Name of the connected server
+        qualified_name: Name of the connected server (e.g., 'smithery-ai/github')
     
     Returns:
         JSON string with list of tools
@@ -244,25 +391,22 @@ def smithery_list_tools(server_name):
         asyncio.set_event_loop(loop)
         
         result = loop.run_until_complete(
-            smithery_client.list_tools(server_name)
+            smithery_client.list_tools(qualified_name)
         )
         
         return json.dumps(result, indent=2)
         
     except Exception as e:
         logger.error(f"Error listing tools: {e}")
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 
-def smithery_call_tool(server_name, tool_name, arguments_json="{}"):
+def smithery_call_tool(qualified_name, tool_name, arguments_json="{}"):
     """
     Call a tool on a connected Smithery server
     
     Args:
-        server_name: Name of the connected server
+        qualified_name: Name of the connected server (e.g., 'smithery-ai/github')
         tool_name: Name of the tool to call
         arguments_json: JSON string with tool arguments
     
@@ -276,24 +420,17 @@ def smithery_call_tool(server_name, tool_name, arguments_json="{}"):
         asyncio.set_event_loop(loop)
         
         result = loop.run_until_complete(
-            smithery_client.call_tool(server_name, tool_name, arguments)
+            smithery_client.call_tool(qualified_name, tool_name, arguments)
         )
         
-        return json.dumps({
-            "success": True,
-            "server": server_name,
-            "tool": tool_name,
-            "result": result
-        }, indent=2)
+        return json.dumps(result, indent=2)
         
     except Exception as e:
         logger.error(f"Error calling tool: {e}")
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 
 if __name__ == "__main__":
     logger.info("Smithery Connector initialized")
-    logger.info("Available functions: smithery_connect, smithery_list_servers, smithery_list_tools, smithery_call_tool")
+    logger.info("Set SMITHERY_API_KEY environment variable to use Smithery features")
+    logger.info("Get your API key from: https://smithery.ai")
