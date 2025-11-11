@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY reminder_server.py .
 COPY reminder_notifier.py .
 COPY mcp_pipe.py .
+COPY web_server.py .
 COPY start.sh .
 
 # Make start script executable
