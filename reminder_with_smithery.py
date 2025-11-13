@@ -22,7 +22,26 @@ from smithery_connector import (
     smithery_connect,
     smithery_list_servers, 
     smithery_list_tools,
-    smithery_call_tool
+    smithery_call_tool,
+    connect_wapulse_whatsapp,
+    connect_server_with_url,
+    build_server_url
+)
+
+logger.info("Importing local server connector...")
+from local_server_connector import (
+    start_whatsapp_server,
+    start_local_mcp_server,
+    list_local_servers,
+    list_local_tools,
+    call_local_tool,
+    stop_local_server
+)
+
+logger.info("Importing auto-connect manager...")
+from auto_connect_manager import (
+    get_auto_connected_servers,
+    initialize_auto_connect
 )
 
 logger.info("Importing reminder tools...")
@@ -52,9 +71,27 @@ def get_smithery_server_info(qualified_name: str):
 
 
 @mcp.tool()
-def connect_smithery_server(qualified_name: str, config_json: str = "{}"):
-    """Connect to a Smithery.ai hosted MCP server. Example: connect_smithery_server('smithery-ai/github', '{"githubPersonalAccessToken":"ghp_..."}')"""
-    return smithery_connect(qualified_name, config_json)
+def connect_smithery_server(qualified_name: str, config_json: str = "{}", custom_url: str = ""):
+    """Connect to a Smithery.ai hosted MCP server. For custom URLs with params use custom_url. Example: connect_smithery_server('smithery-ai/github', '{"githubPersonalAccessToken":"ghp_..."}', '')"""
+    return smithery_connect(qualified_name, config_json, custom_url)
+
+
+@mcp.tool()
+def connect_whatsapp_server(profile_name: str = "structural-finch-M804tv"):
+    """Quick connect to wapulse WhatsApp server. Uses SMITHERY_API_KEY from environment. Example: connect_whatsapp_server('structural-finch-M804tv')"""
+    return connect_wapulse_whatsapp(profile_name)
+
+
+@mcp.tool()
+def connect_server_by_url(qualified_name: str, full_url: str):
+    """Connect to any Smithery server using complete URL with parameters. Example: connect_server_by_url('owner/repo', 'https://server.smithery.ai/@owner/repo/mcp?api_key=...&param=...')"""
+    return connect_server_with_url(qualified_name, full_url)
+
+
+@mcp.tool()
+def build_smithery_url(owner: str, repo_name: str, query_params_json: str = "{}"):
+    """Build Smithery server URL with custom parameters. Example: build_smithery_url('Quegenx', 'wapulse-whatsapp-mcp', '{"api_key":"sk_...","profile":"my-profile"}')"""
+    return build_server_url(owner, repo_name, query_params_json)
 
 
 @mcp.tool()
@@ -73,6 +110,42 @@ def list_smithery_tools(qualified_name: str):
 def call_smithery_tool(qualified_name: str, tool_name: str, arguments_json: str = "{}"):
     """Call a tool on a connected Smithery server. Example: call_smithery_tool('smithery-ai/github', 'search_repositories', '{"query": "MCP"}')"""
     return smithery_call_tool(qualified_name, tool_name, arguments_json)
+
+
+@mcp.tool()
+def start_whatsapp_mcp_server(profile_name: str = "structural-finch-M804tv", api_key: str = ""):
+    """Start the wapulse WhatsApp MCP server. Uses SMITHERY_API_KEY from environment if api_key not provided."""
+    return start_whatsapp_server(profile_name, api_key)
+
+
+@mcp.tool()
+def start_local_server(server_name: str, command: str, args_json: str, env_json: str = "{}"):
+    """Start a local MCP server. Example: start_local_server('myserver', 'python', '["server.py"]', '{}')"""
+    return start_local_mcp_server(server_name, command, args_json, env_json)
+
+
+@mcp.tool()
+def list_local_mcp_servers():
+    """List all running local MCP servers"""
+    return list_local_servers()
+
+
+@mcp.tool()
+def list_local_server_tools(server_name: str):
+    """List tools from a running local server. Example: list_local_server_tools('whatsapp')"""
+    return list_local_tools(server_name)
+
+
+@mcp.tool()
+def call_local_server_tool(server_name: str, tool_name: str, arguments_json: str = "{}"):
+    """Call a tool on a running local server. Example: call_local_server_tool('whatsapp', 'send_message', '{"to": "...", "message": "..."}')"""
+    return call_local_tool(server_name, tool_name, arguments_json)
+
+
+@mcp.tool()
+def stop_local_mcp_server(server_name: str):
+    """Stop a running local MCP server. Example: stop_local_mcp_server('whatsapp')"""
+    return stop_local_server(server_name)
 
 
 @mcp.tool()
