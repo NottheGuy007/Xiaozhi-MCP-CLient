@@ -1,0 +1,72 @@
+{
+  "servers": [
+    {
+      "enabled": true,
+      "name": "whatsapp",
+      "type": "remote",
+      "qualified_name": "Quegenx/wapulse-whatsapp-mcp",
+      "url": "https://server.smithery.ai/@Quegenx/wapulse-whatsapp-mcp/mcp",
+      "params": {
+        "api_key": "${SMITHERY_API_KEY}",
+        "profile": "structural-finch-M804tv"
+      },
+      "description": "WhatsApp messaging server"
+    },
+    {
+      "enabled": false,
+      "name": "github",
+      "type": "remote",
+      "qualified_name": "smithery-ai/github",
+      "url": "https://server.smithery.ai/@smithery-ai/github/mcp",
+      "config": {
+        "githubPersonalAccessToken": "${GITHUB_TOKEN}"
+      },
+      "description": "GitHub integration"
+    },
+    {
+      "enabled": false,
+      "name": "slack",
+      "type": "remote",
+      "qualified_name": "smithery-ai/slack",
+      "url": "https://server.smithery.ai/@smithery-ai/slack/mcp",
+      "config": {
+        "slackBotToken": "${SLACK_BOT_TOKEN}"
+      },
+      "description": "Slack messaging"
+    },
+    {
+      "enabled": false,
+      "name": "exa",
+      "type": "remote",
+      "qualified_name": "smithery-ai/exa",
+      "url": "https://server.smithery.ai/@smithery-ai/exa/mcp",
+      "config": {
+        "exaApiKey": "${EXA_API_KEY}"
+      },
+      "description": "Exa web search"
+    },
+    {
+      "enabled": false,
+      "name": "gmail",
+      "type": "remote",
+      "qualified_name": "smithery-ai/gmail",
+      "url": "https://server.smithery.ai/@smithery-ai/gmail/mcp",
+      "config": {
+        "oauthToken": "${GMAIL_OAUTH_TOKEN}"
+      },
+      "description": "Gmail integration"
+    },
+    {
+      "enabled": false,
+      "name": "custom-server",
+      "type": "remote",
+      "qualified_name": "your-org/your-server",
+      "url": "https://your-mcp-server.com/mcp",
+      "params": {
+        "api_key": "${YOUR_SERVER_API_KEY}",
+        "custom_param": "value"
+      },
+      "description": "Your custom MCP server"
+    }
+  ]
+}
